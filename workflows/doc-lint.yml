@@ -1,0 +1,60 @@
+name: "doc2gh: Validate Documentation"
+
+on:
+  pull_request:
+    paths:
+      - "adrs/**/*.md"
+      - "rfcs/**/*.md"
+      - "specs/**/*.md"
+      - "tools/**"
+      - "doc/adrs/**/*.md"
+      - "doc/rfcs/**/*.md"
+      - "doc/specs/**/*.md"
+      - "doc/tools/**"
+      - "docs/adrs/**/*.md"
+      - "docs/rfcs/**/*.md"
+      - "docs/specs/**/*.md"
+      - "docs/tools/**"
+  push:
+    branches: [main, master]
+    paths:
+      - "adrs/**/*.md"
+      - "rfcs/**/*.md"
+      - "specs/**/*.md"
+      - "tools/**"
+      - "doc/adrs/**/*.md"
+      - "doc/rfcs/**/*.md"
+      - "doc/specs/**/*.md"
+      - "doc/tools/**"
+      - "docs/adrs/**/*.md"
+      - "docs/rfcs/**/*.md"
+      - "docs/specs/**/*.md"
+      - "docs/tools/**"
+
+permissions:
+  contents: read
+
+jobs:
+  validate-docs:
+    name: Validate Frontmatter & Managed Sections
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Run doc2gh CLI validation
+        shell: bash
+        run: |
+          set -euo pipefail
+          FOUND=0
+          for prefix in "." "doc" "docs"; do
+            if [ -f "${prefix}/tools/doc2gh.py" ]; then
+              FOUND=1
+              echo "Running doc2gh validation in '${prefix}'..."
+              python3 "${prefix}/tools/doc2gh.py" --root "${prefix}" validate --include-templates
+            fi
+          done
+          if [ "${FOUND}" -eq 0 ]; then
+            echo "Error: Could not find tools/doc2gh.py in '.', 'doc/', or 'docs/'." >&2
+            exit 1
+          fi
