@@ -1,0 +1,61 @@
+name: "doc2gh: Guard main Branch (Exclude doc/ and test/)"
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  guard-main:
+    name: Ensure doc/ and test(s)/ Stay Only in devel
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Check or strip doc/ and test(s)/ directories on main
+        shell: bash
+        run: |
+          set -euo pipefail
+          EXCLUDED_DIRS=(doc test tests)
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            echo "Pull Request targets 'main'. Note: 'doc/', 'test/', and 'tests/' stay in 'devel' only."
+            for dir in "${EXCLUDED_DIRS[@]}"; do
+              if [ -d "${dir}" ]; then
+                echo "::warning::Directory '${dir}/' is present in the source branch. When merged to 'main', the push guard on 'main' will automatically strip '${dir}/', or use 'git merge-to-main' locally."
+              fi
+            done
+          elif [ "${{ github.event_name }}" = "push" ]; then
+            CHANGED=0
+            for dir in "${EXCLUDED_DIRS[@]}"; do
+              if [ -d "${dir}" ]; then
+                echo "Detected '${dir}/' on 'main'. Removing '${dir}/' so it remains exclusive to 'devel'..."
+                git rm -rf --ignore-unmatch "${dir}"
+                rm -rf "${dir}"
+                CHANGED=1
+              fi
+            done
+
+            EXPECTED_GITIGNORE=$'doc/\ntest/\ntests/'
+            CURRENT_GITIGNORE="$(cat .gitignore 2>/dev/null || true)"
+            if [ "${CURRENT_GITIGNORE}" != "${EXPECTED_GITIGNORE}" ]; then
+              printf '%s\n' "${EXPECTED_GITIGNORE}" > .gitignore
+              git add .gitignore
+              CHANGED=1
+            fi
+
+            if [ "${CHANGED}" -eq 1 ]; then
+              git config user.name "github-actions[bot]"
+              git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+              git commit -m "chore(main): remove doc/ and test(s)/ to keep them exclusive to devel"
+              git push origin HEAD:main
+            else
+              echo "Verified: 'doc/', 'test/', and 'tests/' are not present on 'main'."
+            fi
+          fi

@@ -1,0 +1,36 @@
+#!/usr/bin/env bash
+# Git prepare-commit-msg hook for doc2gh
+# Safeguard for merge commits to ensure 'doc/', 'test/', and 'tests/' are never committed to 'main'.
+
+set -euo pipefail
+
+COMMIT_SOURCE="${2:-}"
+EXCLUDED_DIRS=(doc test tests)
+
+if [ "${COMMIT_SOURCE}" = "merge" ] || [ -f "$(git rev-parse --git-dir)/MERGE_HEAD" ]; then
+  CURRENT_BRANCH="$(git symbolic-ref --short HEAD 2>/dev/null || true)"
+  if [ "${CURRENT_BRANCH}" = "main" ]; then
+    for dir in "${EXCLUDED_DIRS[@]}"; do
+      if git ls-files --stage -- "${dir}" | grep -q .; then
+        echo "[doc2gh hook] Stripping '${dir}/' before finalizing merge into 'main'..."
+        git rm -rf --quiet --ignore-unmatch "${dir}"
+        rm -rf "${dir}"
+      fi
+    done
+    if git rev-parse -q --verify HEAD:.gitignore >/dev/null 2>&1; then
+      git checkout HEAD -- .gitignore
+    fi
+  elif [ "${CURRENT_BRANCH}" = "devel" ]; then
+    for dir in "${EXCLUDED_DIRS[@]}"; do
+      if git rev-parse -q --verify "HEAD:${dir}" >/dev/null 2>&1; then
+        if ! git ls-files --stage -- "${dir}" | grep -q .; then
+          echo "[doc2gh hook] Restoring '${dir}/' on 'devel'..."
+          git checkout HEAD -- "${dir}"
+        fi
+      fi
+    done
+    if git rev-parse -q --verify HEAD:.gitignore >/dev/null 2>&1; then
+      git checkout HEAD -- .gitignore
+    fi
+  fi
+fi

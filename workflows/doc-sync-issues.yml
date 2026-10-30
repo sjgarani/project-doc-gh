@@ -1,0 +1,128 @@
+name: "doc2gh: Sync Documents with GitHub Issues"
+
+on:
+  push:
+    branches: [main, master]
+    paths:
+      - "adrs/**/*.md"
+      - "rfcs/**/*.md"
+      - "specs/**/*.md"
+      - "doc/adrs/**/*.md"
+      - "doc/rfcs/**/*.md"
+      - "doc/specs/**/*.md"
+      - "docs/adrs/**/*.md"
+      - "docs/rfcs/**/*.md"
+      - "docs/specs/**/*.md"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  sync-issues:
+    name: Create or Update Tracking Issues
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Sync Documents to GitHub Issues via doc2gh CLI
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { execFileSync } = require('child_process');
+            const fs = require('fs');
+            const path = require('path');
+
+            const roots = ['.', 'doc', 'docs'];
+            const allDocs = [];
+
+            for (const root of roots) {
+              const cliPath = path.join(root, 'tools', 'doc2gh.py');
+              if (!fs.existsSync(cliPath)) continue;
+
+              const rawJson = execFileSync(
+                'python3',
+                [cliPath, '--root', root, 'list', '--format', 'json'],
+                { encoding: 'utf8' }
+              );
+              const parsed = JSON.parse(rawJson);
+              for (const doc of parsed) {
+                const relPath = root === '.' ? doc.path : path.join(root, doc.path);
+                allDocs.push({ ...doc, repoPath: relPath });
+              }
+            }
+
+            if (allDocs.length === 0) {
+              core.info('No tracked documents found for synchronization.');
+              return;
+            }
+
+            const existingIssues = await github.paginate(github.rest.issues.listForRepo, {
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'all',
+              per_page: 100
+            });
+
+            const closedStatuses = new Set([
+              'done',
+              'archived',
+              'rejected',
+              'superseded',
+              'deprecated',
+              'implemented'
+            ]);
+
+            for (const doc of allDocs) {
+              const prefix = `[${doc.id}]`;
+              const issueTitle = `${prefix} ${doc.title}`;
+              const typeLabel = doc.type.toLowerCase(); // adr, rfc, spec
+              const statusLabel = `status:${doc.status || 'unknown'}`;
+              const branchName = context.ref.replace('refs/heads/', '');
+              const docUrl = `${context.payload.repository.html_url}/blob/${branchName}/${doc.repoPath}`;
+
+              const body = [
+                `### Document Tracked by doc2gh`,
+                `- **Document ID**: \`${doc.id}\``,
+                `- **Type**: \`${doc.type.toUpperCase()}\``,
+                `- **Status**: \`${doc.status}\``,
+                `- **Updated At**: \`${doc.updated_at}\``,
+                `- **Linked PR**: ${doc.github_pr || '_None_'}`,
+                `- **Source File**: [\`${doc.repoPath}\`](${docUrl})`,
+                ``,
+                `> This Issue is automatically synchronized from the repository's doc2gh management metadata.`
+              ].join('\n');
+
+              const found = existingIssues.find(i => !i.pull_request && i.title.startsWith(prefix));
+
+              if (!found) {
+                const created = await github.rest.issues.create({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  title: issueTitle,
+                  body,
+                  labels: [typeLabel, statusLabel]
+                });
+                core.info(`Created Issue #${created.data.number} for ${doc.id}`);
+              } else {
+                const currentLabels = found.labels.map(l => (typeof l === 'string' ? l : l.name));
+                const filteredLabels = currentLabels.filter(l => !l.startsWith('status:'));
+                if (!filteredLabels.includes(typeLabel)) filteredLabels.push(typeLabel);
+                filteredLabels.push(statusLabel);
+
+                const shouldClose = closedStatuses.has(doc.status);
+
+                await github.rest.issues.update({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: found.number,
+                  title: issueTitle,
+                  body,
+                  labels: filteredLabels,
+                  state: shouldClose ? 'closed' : 'open'
+                });
+                core.info(`Updated Issue #${found.number} for ${doc.id} (${statusLabel})`);
+              }
+            }
