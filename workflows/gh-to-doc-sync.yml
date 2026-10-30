@@ -68,16 +68,25 @@ jobs:
         run: |
           set -euo pipefail
           FOUND=0
+          CLI_BIN=""
+          for candidate in "./tools/doc2gh.py" "doc/tools/doc2gh.py" "docs/tools/doc2gh.py"; do
+            if [ -f "${candidate}" ] && python3 "${candidate}" --help 2>&1 | grep -q "gh-event"; then
+              CLI_BIN="${candidate}"
+              break
+            fi
+          done
           for prefix in "." "doc" "docs"; do
             if [ -f "${prefix}/tools/doc2gh.py" ]; then
               FOUND=1
+              RUNNER="${CLI_BIN:-${prefix}/tools/doc2gh.py}"
               echo "Applying GitHub event '${GITHUB_EVENT_NAME}' via doc2gh in '${prefix}'..."
               if [ -n "${PR_MODIFIED_FILES}" ]; then
                 # shellcheck disable=SC2086
-                python3 "${prefix}/tools/doc2gh.py" --root "${prefix}" gh-event --files ${PR_MODIFIED_FILES}
+                python3 "${RUNNER}" --root "${prefix}" gh-event --files ${PR_MODIFIED_FILES}
               else
-                python3 "${prefix}/tools/doc2gh.py" --root "${prefix}" gh-event
+                python3 "${RUNNER}" --root "${prefix}" gh-event
               fi
+              python3 "${RUNNER}" --root "${prefix}" validate --include-templates
             fi
           done
           if [ "${FOUND}" -eq 0 ]; then

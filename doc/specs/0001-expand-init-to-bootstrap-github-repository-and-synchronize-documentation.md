@@ -5,7 +5,7 @@
 id: SPEC-0001
 type: spec
 title: "Expand init to bootstrap GitHub repository and synchronize documentation"
-status: draft
+status: done
 created_at: 2026-10-30
 updated_at: 2026-10-30
 github_issue: ""
@@ -30,7 +30,7 @@ tags: []
 | :--- | :--- |
 | **Document ID** | `SPEC-0001` |
 | **Type** | `SPEC` |
-| **Status** | `draft` |
+| **Status** | `done` |
 | **Created At** | `2026-10-30` |
 | **Updated At** | `2026-10-30` |
 | **GitHub Issue** | _None_ |
@@ -93,27 +93,27 @@ Add an `init` subcommand to the CLI in `tools/doc2gh.py`, with documented owner/
 
 ## Acceptance Criteria
 
-- [ ] **AC-01**: Given a valid doc2gh checkout and authenticated GitHub access, when `init` runs, then it validates before remote mutations and reports the selected repository and setup actions.
-- [ ] **AC-02**: Given the target remote does not exist, when the user confirms creation, then `init` creates it and pushes the current branch without force-pushing.
-- [ ] **AC-03**: Given an existing remote repository, when `init` runs, then it reuses it without replacing content or history.
-- [ ] **AC-04**: Given local documents without tracking Issues, when synchronization runs, then it creates/reuses Issues and Project items by document ID and records links through doc2gh.
-- [ ] **AC-05**: Given matching Issues, labels, Project, and correct workflow links, when `init` runs again, then no duplicates are created and correct links remain unchanged.
-- [ ] **AC-06**: Given an invalid document, missing authentication, or insufficient permission, when `init` runs, then it exits nonzero with an actionable error before the affected mutation.
-- [ ] **AC-07**: Given dry-run mode, when `init` runs, then it lists intended changes without Git or remote writes.
-- [ ] **AC-08**: Given a missing, broken, or misdirected workflow link, when `init` runs, then it creates or repairs the relative link and verifies its target.
-- [ ] **AC-09**: Given a regular file or directory at an expected workflow link path, when `init` runs, then it preserves the path and reports a conflict.
-- [ ] **AC-10**: Given a GitHub status/link event, when the configured workflow handles it, then it updates the matching document using doc2gh and the document remains valid.
-- [ ] **AC-11**: Given a feature branch and explicit PR option, when a PR is appropriate, then `init` creates or reuses a linked PR; without that option it creates no PR.
+- [x] **AC-01**: Given a valid doc2gh checkout and authenticated GitHub access, when `init` runs, then it validates before remote mutations and reports the selected repository and setup actions.
+- [x] **AC-02**: Given the target remote does not exist, when the user confirms creation, then `init` creates it and pushes the current branch without force-pushing.
+- [x] **AC-03**: Given an existing remote repository, when `init` runs, then it reuses it without replacing content or history.
+- [x] **AC-04**: Given local documents without tracking Issues, when synchronization runs, then it creates/reuses Issues and Project items by document ID and records links through doc2gh.
+- [x] **AC-05**: Given matching Issues, labels, Project, and correct workflow links, when `init` runs again, then no duplicates are created and correct links remain unchanged.
+- [x] **AC-06**: Given an invalid document, missing authentication, or insufficient permission, when `init` runs, then it exits nonzero with an actionable error before the affected mutation.
+- [x] **AC-07**: Given dry-run mode, when `init` runs, then it lists intended changes without Git or remote writes.
+- [x] **AC-08**: Given a missing, broken, or misdirected workflow link, when `init` runs, then it creates or repairs the relative link and verifies its target.
+- [x] **AC-09**: Given a regular file or directory at an expected workflow link path, when `init` runs, then it preserves the path and reports a conflict.
+- [x] **AC-10**: Given a GitHub status/link event, when the configured workflow handles it, then it updates the matching document using doc2gh and the document remains valid.
+- [x] **AC-11**: Given a feature branch and explicit PR option, when a PR is appropriate, then `init` creates or reuses a linked PR; without that option it creates no PR.
 
 ## Task Breakdown (GitHub Issues & AI Execution)
 
 Incremental, verifiable implementation steps (can be linked to GitHub sub-issues or PRs):
 
-- [ ] **Task 1**: Define `init` phases, options, repository resolution, and dry-run output.
-- [ ] **Task 2**: Implement document validation, Git/GitHub preflight, safe remote creation, and push behavior in `tools/`.
-- [ ] **Task 3**: Implement idempotent Project, label, Issue, and workflow-link setup.
-- [ ] **Task 4**: Add mocked tests for repeat runs, dry-run, link repair/conflict, invalid documents, authentication, permissions, and partial failures.
-- [ ] **Task 5**: Update user guides under `doc/` with permissions, confirmations, recovery steps, and examples.
+- [x] **Task 1**: Define `init` phases, options, repository resolution, and dry-run output.
+- [x] **Task 2**: Implement document validation, Git/GitHub preflight, safe remote creation, and push behavior in `tools/`.
+- [x] **Task 3**: Implement idempotent Project, label, Issue, and workflow-link setup.
+- [x] **Task 4**: Add mocked tests for repeat runs, dry-run, link repair/conflict, invalid documents, authentication, permissions, and partial failures.
+- [x] **Task 5**: Update user guides under `doc/` with permissions, confirmations, recovery steps, and examples.
 
 ## Test & Verification Plan
 
