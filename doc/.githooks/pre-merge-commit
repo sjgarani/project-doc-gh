@@ -1,0 +1,16 @@
+#!/usr/bin/env bash
+# Git pre-merge-commit hook for doc2gh
+# Validates merge state; actual tree adjustment is performed by prepare-commit-msg and post-merge.
+
+set -euo pipefail
+
+CURRENT_BRANCH="$(git symbolic-ref --short HEAD 2>/dev/null || true)"
+EXCLUDED_DIRS=(doc test tests)
+
+if [ "${CURRENT_BRANCH}" = "main" ]; then
+  for dir in "${EXCLUDED_DIRS[@]}"; do
+    if git ls-files --stage -- "${dir}" | grep -q .; then
+      echo "[doc2gh hook] Detected '${dir}/' in incoming merge to 'main' (will be excluded)."
+    fi
+  done
+fi

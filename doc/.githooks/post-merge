@@ -1,0 +1,66 @@
+#!/usr/bin/env bash
+# Git post-merge hook for doc2gh
+# Ensures that:
+# 1. Merging into 'main' always excludes 'doc/', 'test/', and 'tests/' and keeps main's .gitignore.
+# 2. Merging into 'devel' always preserves 'devel's 'doc/', 'test/', 'tests/', and .gitignore.
+
+set -euo pipefail
+
+CURRENT_BRANCH="$(git symbolic-ref --short HEAD 2>/dev/null || true)"
+EXCLUDED_DIRS=(doc test tests)
+
+rewrite_head_commit() {
+  local new_tree
+  new_tree="$(git write-tree)"
+  local parents=()
+  while IFS= read -r p; do
+    [ -n "${p}" ] && parents+=("-p" "${p}")
+  done < <(git rev-parse HEAD^@)
+
+  local new_commit
+  new_commit="$(git log -1 --format=%B HEAD | git commit-tree "${new_tree}" "${parents[@]}")"
+  git update-ref HEAD "${new_commit}"
+}
+
+if [ "${CURRENT_BRANCH}" = "main" ]; then
+  NEEDS_REWRITE=0
+  for dir in "${EXCLUDED_DIRS[@]}"; do
+    if git rev-parse -q --verify "HEAD:${dir}" >/dev/null 2>&1 || [ -d "${dir}" ]; then
+      echo "[doc2gh hook] Excluding '${dir}/' from merge commit on 'main'..."
+      git rm -rf --quiet --ignore-unmatch "${dir}"
+      rm -rf "${dir}"
+      NEEDS_REWRITE=1
+    fi
+  done
+
+  if git rev-parse -q --verify HEAD^1:.gitignore >/dev/null 2>&1; then
+    if ! git diff --quiet HEAD^1 HEAD -- .gitignore; then
+      git checkout HEAD^1 -- .gitignore
+      NEEDS_REWRITE=1
+    fi
+  fi
+
+  if [ "${NEEDS_REWRITE}" -eq 1 ]; then
+    rewrite_head_commit
+  fi
+elif [ "${CURRENT_BRANCH}" = "devel" ]; then
+  NEEDS_REWRITE=0
+  for dir in "${EXCLUDED_DIRS[@]}"; do
+    if ! git rev-parse -q --verify "HEAD:${dir}" >/dev/null 2>&1 && git rev-parse -q --verify "HEAD^1:${dir}" >/dev/null 2>&1; then
+      echo "[doc2gh hook] Preserving '${dir}/' on 'devel'..."
+      git checkout HEAD^1 -- "${dir}"
+      NEEDS_REWRITE=1
+    fi
+  done
+
+  if git rev-parse -q --verify HEAD^1:.gitignore >/dev/null 2>&1; then
+    if ! git diff --quiet HEAD^1 HEAD -- .gitignore; then
+      git checkout HEAD^1 -- .gitignore
+      NEEDS_REWRITE=1
+    fi
+  fi
+
+  if [ "${NEEDS_REWRITE}" -eq 1 ]; then
+    rewrite_head_commit
+  fi
+fi
